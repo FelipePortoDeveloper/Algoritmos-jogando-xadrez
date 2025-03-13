@@ -8,5 +8,3 @@ def random_move(board):
         random_move = random.choice(movimentos)
     
         return random_move
-    
-    return None

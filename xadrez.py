@@ -62,6 +62,7 @@ rodando = True
 board = chess.Board()
 relogio = pygame.time.Clock()
 pecaSelecionada = None
+pausa = False
 
 load_images()
 while rodando:
@@ -69,13 +70,23 @@ while rodando:
     draw_board()
     draw_pieces()
     pygame.display.flip()
-    relogio.tick(10)
+    relogio.tick(2)
 
+    if board.is_game_over():
+        if board.is_stalemate() and not pausa:
+            print("Afogamento!")
+        elif board.is_checkmate() and not pausa:
+            print("Xeque-mate!")
+        elif board.is_insufficient_material() and not pausa:
+            print("Material insuficiente para checkmate!")
+        
+        pausa = True
 
+   
     for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            running = False
-            sys.exit()
-    
-    
-    move_ai()
+            if event.type == pygame.QUIT:
+                running = False
+                sys.exit()
+
+    if not pausa:
+        move_ai()
