@@ -179,7 +179,7 @@ while rodando:
             if board.turn == chess.WHITE:
                 move = move_ai("Random")
             else:
-                move = move_ai("Random")
+                move = move_ai("Min")
                
                 
             
