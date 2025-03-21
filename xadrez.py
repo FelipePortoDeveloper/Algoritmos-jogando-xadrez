@@ -32,6 +32,15 @@ def load_images():
             pecas[cor + peca] = image
 
 
+def ordenar_movimentos(board: chess.Board):
+    return sorted(board.legal_moves, key= lambda move: evaluate_move(board, move), reverse= True)
+
+def evaluate_move(board: chess.Board, move):
+    board.push(move)
+    valor = evaluate_board(board)
+    board.pop()
+
+    return valor
 
 
 def draw_board():
@@ -42,125 +51,75 @@ def draw_board():
 
 
 def evaluate_board(board):
-    valores_pos = {"P": [[0, 0, 0, 0, 0, 0, 0, 0], 
-                         [50, 50, 50, 50, 50, 50, 50, 50], 
-                         [10, 10, 20, 30, 30, 20, 10, 10], 
-                         [5, 5, 10, 25, 25, 10, 5, 5], 
-                         [0, 0, 0, 20, 20, 0, 0, 0], 
-                         [5, -5, -10, 0, 0, -10, -5, 5], 
-                         [5, 10, 10, -20, -20, 10, 10, 5], 
-                         [0, 0, 0, 0, 0, 0, 0, 0]], 
-                    "N": [[-50, -40, -30, -30, -30, -30, -40, -50],
-                        [-40, -20, 0, 0, 0, 0, -20, -40], 
-                        [-30, 0, 10, 15, 15, 10, 0, -30],
-                        [-30, 5, 15, 20, 20, 15, 5, -30],
-                        [-30, 0, 15, 20, 20, 15, 0, -30],
-                        [-30, 5, 10, 15, 15, 10, 5, -30],
-                        [-40, -20, 0, 5, 5, 0, -20, -40],
-                        [-50, -40, -30, -30, -30, -30, -40, -50]], 
-                    "B": [[-20, -10, -10, -10, -10, -10, -10, -20],
-                        [-10, 0, 0, 0, 0, 0, 0, -10],
-                        [-10, 0, 5, 10, 10, 5, 0, -10],
-                        [-10, 5, 5, 10, 10, 5, 5, -10],
-                        [-10, 0, 10, 10, 10, 10, 0, -10],
-                        [-10, 10, 10, 10, 10, 10, 10, -10],
-                        [-10, 5, 0, 0, 0, 0, 5, -10],
-                        [-20, -10, -10, -10, -10, -10, -10, -20]],
-                    "R": [[0, 0, 0, 0, 0, 0, 0, 0],
-                        [5, 10, 10, 10, 10, 10, 10, 5],
-                        [-5, 0, 0, 0, 0, 0, 0, -5],
-                        [-5, 0, 0, 0, 0, 0, 0, -5],
-                        [-5, 0, 0, 0, 0, 0, 0, -5],
-                        [-5, 0, 0, 0, 0, 0, 0, -5],
-                        [-5, 0, 0, 0, 0, 0, 0, -5],
-                        [0, 0, 0, 5, 5, 0, 0, 0]],
-                    "Q": [[-20, -10, -10, -5, -5, -10, -10, -20],
-                        [-10, 0, 0, 0, 0, 0, 0, -10],
-                        [-10, 0, 5, 5, 5, 5, 0, -10],
-                        [-5, 0, 5, 5, 5, 5, 0, -5],
-                        [0, 0, 5, 5, 5, 5, 0, -5],
-                        [-10, 5, 5, 5, 5, 5, 0, -10],
-                        [-10, 0, 5, 0, 0, 0, 0, -10],
-                        [-20, -10, -10, -5, -5, -10, -10, -20]],
-                    "K": [[0, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 0],
-                        [0, 0, 0, 0, 0, 0, 0, 0]]
-                    }
-    
-    valores_pos_pretas = {piece: values[::-1] for piece, values in valores_pos.items()}
 
     valores = {"P": 10, "N": 30, "B": 30, "R": 50, "Q": 90, "K": 900}
     score = 0
 
     if board.is_checkmate():  
         if board.turn == chess.WHITE:
-            return 10000
+            return 1000
         else:
-            return -10000
+            return -1000
 
     if board.is_stalemate() or board.is_insufficient_material():
-        return -100
+        return 0
+    
+    central_squares = [chess.D4, chess.E4, chess.D5, chess.E5]
 
     for square in chess.SQUARES:
         peca = board.piece_at(square)
 
         if peca:
             valor_peca = valores.get(peca.symbol().upper(), 0)
-            linha, coluna = divmod(square, 8)
 
             if peca.color == chess.WHITE:
                 score -= valor_peca
-
             else:
                 score += valor_peca
 
-                if peca.symbol().upper() in valores_pos_pretas:
-                    score += valores_pos_pretas[peca.symbol().upper()][linha][coluna]
+            if square in central_squares:
+                score += 5 if peca.color == chess.BLACK else -5 
 
-    score += len(list(board.legal_moves)) * 0.1
+    if board.is_repetition(1): 
+        score -= 20
 
+    print(score)
     return score
 
-
+transposition_table = {}
 
 def minimax(board, depth, alpha, beta, maximize):
+
+    hash_key = board.fen()
+
+    if hash_key in transposition_table and transposition_table[hash_key][1] >= depth:
+        return transposition_table[hash_key][0]
+
     if depth == 0 or board.is_game_over():
         return evaluate_board(board)
+    
+    melhor_valor = float('-inf') if maximize else float('inf')
 
-    movimentos_legais = list(board.legal_moves)
+    for move in ordenar_movimentos(board):
+        board.push(move)
+        eval = minimax(board, depth - 1, alpha, beta, not maximize)
+        board.pop()
 
-    if maximize:
-        max_eval = float('-inf')
-        for move in movimentos_legais:
-            board.push(move)
-            eval = minimax(board, depth - 1, alpha, beta, False)
-            board.pop()
-
-            max_eval = max(max_eval, eval)
+        if maximize:
+            melhor_valor = max(melhor_valor, eval)
             alpha = max(alpha, eval)
-            if beta <= alpha:
-                break
 
-        return max_eval
-    else:
-        min_eval = float('inf')
-        for move in movimentos_legais:
-            board.push(move)
-            eval = minimax(board, depth - 1, alpha, beta, True)
-            board.pop()
-
-            min_eval = min(min_eval, eval)
+        else:
+            melhor_valor = min(melhor_valor, eval)
             beta = min(beta, eval)
-            if beta <= alpha:
-                break
+            
 
-        return min_eval
+        if beta <= alpha:
+            break
 
+        transposition_table[hash_key] = (melhor_valor, depth)
+    
+    return melhor_valor
 
 
 def draw_pieces():
@@ -185,7 +144,7 @@ def move_ai(selecionada: str):
     elif selecionada == "Min":
         for move in board.legal_moves:
             board.push(move)
-            valor = minimax(board, 1, float('-inf'), float('inf'), False)
+            valor = minimax(board, 2, float('-inf'), float('inf'), True)
             board.pop()
 
             if valor > melhor_valor:
@@ -263,7 +222,7 @@ while rodando:
                 if move:
                     board.push(move)
             
-            else:
+            elif ia_vs_ia:
                 move = move_ai("Random")
 
                 if move:
