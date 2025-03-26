@@ -52,7 +52,7 @@ def draw_board():
 
 def evaluate_board(board):
 
-    valores = {"P": 10, "N": 30, "B": 30, "R": 50, "Q": 90, "K": 900}
+    valores = {"P": 100, "N": 320, "B": 330, "R": 500, "Q": 900, "K": 20000}
     score = 0
 
     if board.is_checkmate():  
@@ -144,7 +144,7 @@ def move_ai(selecionada: str):
     elif selecionada == "Min":
         for move in board.legal_moves:
             board.push(move)
-            valor = minimax(board, 2, float('-inf'), float('inf'), True)
+            valor = minimax(board, 1, float('-inf'), float('inf'), True)
             board.pop()
 
             if valor > melhor_valor:
