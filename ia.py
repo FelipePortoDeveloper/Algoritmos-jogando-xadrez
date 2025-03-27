@@ -1,5 +1,4 @@
 import chess
-import random
 import json
 import numpy as np
 
