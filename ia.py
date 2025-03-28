@@ -43,6 +43,7 @@ class XadrezIA:
         
         valores = {"P": 10, "N": 30, "B": 30, "R": 50, "Q": 90, "K": 900}
         pontos = 0
+        centro = [chess.D4, chess.E4, chess.D5, chess.E5]
 
         # Avaliando captura:
 
@@ -78,10 +79,14 @@ class XadrezIA:
                 linha, coluna = divmod(quadrado, 8)
                 simbolo = peca.symbol().upper()
 
+                if quadrado in centro: 
+                    pontos += 50
+
                 if simbolo == "K":
                     pontos = pontos + self.posicoes_ideais[simbolo + "_l"][linha][coluna] if self.estagio_jogo(tabuleiro) else pontos + self.posicoes_ideais[simbolo + "_e"][linha][coluna]
                 else:
                     pontos += self.posicoes_ideais[simbolo][linha][coluna]
+            
 
         # Avaliando cheque
 
