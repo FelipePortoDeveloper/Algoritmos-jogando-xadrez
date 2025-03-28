@@ -79,14 +79,11 @@ class XadrezIA:
                 linha, coluna = divmod(quadrado, 8)
                 simbolo = peca.symbol().upper()
 
-                if quadrado in centro: 
-                    pontos += 50
-
                 if simbolo == "K":
                     pontos = pontos + self.posicoes_ideais[simbolo + "_l"][linha][coluna] if self.estagio_jogo(tabuleiro) else pontos + self.posicoes_ideais[simbolo + "_e"][linha][coluna]
                 else:
                     pontos += self.posicoes_ideais[simbolo][linha][coluna]
-            
+        
 
         # Avaliando cheque
 
