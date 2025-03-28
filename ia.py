@@ -47,18 +47,27 @@ class XadrezIA:
         # Avaliando captura:
 
         if movimento != None:
-            peca_capturada = tabuleiro.piece_at(movimento.to_square)
-
-            if peca_capturada:
-                simbolo = peca_capturada.symbol().upper()
-
-                if peca_capturada.color != self.cor:
-                    pontos += valores[simbolo]
-                else:
-                    pontos -= valores[simbolo]
-
-            # Simular o movimento
             if tabuleiro.is_legal(movimento):
+
+                if tabuleiro.is_capture(movimento):
+                    peca_capturada = tabuleiro.piece_at(movimento.to_square)
+                    peca_atacante = tabuleiro.piece_at(movimento.from_square)
+
+                    if peca_atacante and peca_atacante.color == self.cor and peca_capturada:
+
+                        simbolo_a = peca_atacante.symbol().upper()
+                        simbolo_c = peca_capturada.symbol().upper()
+
+                        pontos += valores[simbolo_c] - valores[simbolo_a]
+                    
+                if tabuleiro.gives_check(movimento):
+                    pontos += 50
+
+                if tabuleiro.is_castling(movimento):
+                    pontos += 40
+
+                # Simular o movimento
+            
                 tabuleiro.push(movimento)
 
         # Avaliando posição

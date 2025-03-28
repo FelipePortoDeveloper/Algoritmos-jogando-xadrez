@@ -4,18 +4,19 @@ import chess
 BRANCO, VERDE = (238, 238, 210), (118, 150, 86)
 ALTURA, LARGURA = 720, 720
 TAM_QUADRADOS = ALTURA // 8
-
 pecas = {}
 
 def carregar_imagens():
+    
     tipos = ["B", "K", "N", "P", "Q", "R"]
     cores = ['w', 'b']
 
     for cor in cores:
         for peca in tipos:
-            imagem = pygame.image.load(f"img/{cor}{peca}.png")
+            image = pygame.image.load(f"img/{cor}{peca}.png")
+            image = pygame.transform.scale(image, (TAM_QUADRADOS, TAM_QUADRADOS))
             
-            pecas[peca, cor] = imagem
+            pecas[cor + peca] = image
 
 def desenhar_tabuleiro(tela):
     for linha in range(8):
@@ -29,7 +30,9 @@ def desenhar_pecas(tela, tabuleiro:chess.Board):
         peca = tabuleiro.piece_at(quadrado)
 
         if peca:
-            linha, coluna = divmod(quadrado, 8)
+            coluna = quadrado % 8
+            linha = 7 - (quadrado // 8)
+            
             peca_str = peca.symbol().upper()
             cor = "w" if peca.color == chess.WHITE else "b"
             tela.blit(pecas[cor + peca_str], (coluna * TAM_QUADRADOS, linha * TAM_QUADRADOS))

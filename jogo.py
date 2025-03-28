@@ -1,13 +1,13 @@
 import chess
 
-class jogo:
+class JogoXadrez:
 
     def __init__(self):
         self.board = chess.Board()
         self.rodando = True
         self.pausado = False
 
-    def movimento(self, movimento):
+    def movimento(self, movimento: chess.Move):
         if movimento in self.board.legal_moves:
             self.board.push(movimento)
 

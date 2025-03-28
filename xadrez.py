@@ -4,12 +4,10 @@ import chess
 import chess.engine
 import sys
 
-from ias.randomIA import random_move
-
 ALTURA, LARGURA = 720, 720
 TAM_QUADRADOS = ALTURA / 8
 
-ia_vs_ia = True
+ia_vs_ia = False
 
 BRANCO, VERDE = (238, 238, 210), (118, 150, 86)
 
