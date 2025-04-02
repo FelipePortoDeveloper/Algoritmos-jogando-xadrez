@@ -74,17 +74,37 @@ class XadrezIA:
         # Avaliando posição
 
         for quadrado, peca in tabuleiro.piece_map().items():
+                                
+            linha, coluna = divmod(quadrado, 8)
+            simbolo = peca.symbol().upper()
+            valor_peca = valores[simbolo]
+
+            if simbolo == "K":
+                bonus = self.posicoes_ideais[simbolo + "_l"][linha][coluna] if self.estagio_jogo(tabuleiro) else self.posicoes_ideais[simbolo + "_e"][linha][coluna]
+            else:
+                bonus = self.posicoes_ideais[simbolo][linha][coluna]
 
             if peca.color == self.cor:
-                linha, coluna = divmod(quadrado, 8)
-                simbolo = peca.symbol().upper()
+                if not tabuleiro.is_attacked_by(self.cor, quadrado):
+                    bonus -= 10
 
-                if simbolo == "K":
-                    pontos = pontos + self.posicoes_ideais[simbolo + "_l"][linha][coluna] if self.estagio_jogo(tabuleiro) else pontos + self.posicoes_ideais[simbolo + "_e"][linha][coluna]
+            if simbolo == "P":
+
+                if peca.color == self.cor:
+                    if quadrado in centro:
+                        bonus += 10
+
+                if self.cor == chess.WHITE:
+                    bonus += (linha * 1)
                 else:
-                    pontos += self.posicoes_ideais[simbolo][linha][coluna]
-        
+                    bonus += ((7 - linha) * 1)
 
+            if peca.color == self.cor:
+                pontos += valor_peca + bonus
+            else:
+                pontos -= valor_peca + bonus
+
+                
         # Avaliando cheque
 
         if tabuleiro.is_check():
