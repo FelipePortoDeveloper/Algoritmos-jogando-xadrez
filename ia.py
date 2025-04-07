@@ -1,6 +1,7 @@
 import chess
 import json
 import numpy as np
+import chess.polyglot
 
 class XadrezIA:
 
@@ -38,7 +39,7 @@ class XadrezIA:
                 return False
         else:
             return False
-            
+
     def avaliar_tabuleiro(self, tabuleiro:chess.Board, movimento: chess.Move = None):
         
         valores = {"P": 10, "N": 30, "B": 30, "R": 50, "Q": 90, "K": 900}
@@ -92,12 +93,7 @@ class XadrezIA:
 
                 if peca.color == self.cor:
                     if quadrado in centro:
-                        bonus += 10
-
-                if self.cor == chess.WHITE:
-                    bonus += (linha * 1)
-                else:
-                    bonus += ((7 - linha) * 1)
+                        bonus += 50
 
             if peca.color == self.cor:
                 pontos += valor_peca + bonus
@@ -158,18 +154,42 @@ class XadrezIA:
                     break
             return melhor_valor
 
+    def obter_movimento_abertura(self, tabuleiro:chess.Board):
+        try:
+            with chess.polyglot.open_reader("Perfect2017.bin") as leitor:
+                entradas = list(leitor.find_all(tabuleiro))
+
+                if entradas:
+                    melhor_entrada = max(entradas, key= lambda entrada: entrada.weight)
+                    return melhor_entrada.move
+            
+        except Exception as e:
+            print("Erro ao acessar o livro de aberturas:", e)
+
+        return None
+
     def obter_melhor_movimento(self, tabuleiro:chess.Board):
-        melhor = -float("inf")
+
+        movimento_livro = self.obter_movimento_abertura(tabuleiro)
+
+        if movimento_livro is not None:
+            return movimento_livro
+
+        movimentos = list(tabuleiro.legal_moves)
         melhor_movimento = None
 
-        for movimento in tabuleiro.legal_moves:
-            
-            tabuleiro.push(movimento)
-            valor = self.minimax(tabuleiro, self.profundidade - 1, False, -float("inf"), float("inf"), movimento)
-            tabuleiro.pop()
+        for profundidade_atual in range(1, self.profundidade + 1):
+            pontos_movimentos = []
 
-            if valor > melhor:
-                melhor = valor
-                melhor_movimento = movimento
+            for movimento in movimentos:
+                tabuleiro.push(movimento)
+                pontos = self.minimax(tabuleiro, profundidade_atual - 1, False, -float("inf"), float("inf"), movimento)
+                tabuleiro.pop()
+                pontos_movimentos.append((movimento, pontos))
+
+            pontos_movimentos.sort(key=lambda x: x[1], reverse= True)
+            movimentos = [mov for mov, _ in pontos_movimentos]
+
+            melhor_movimento = movimentos[0]
 
         return melhor_movimento
