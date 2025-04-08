@@ -88,6 +88,8 @@ class XadrezIA:
             if peca.color == self.cor:
                 if not tabuleiro.is_attacked_by(self.cor, quadrado):
                     bonus -= 10
+                if tabuleiro.is_attacked_by(not self.cor, quadrado):
+                    bonus -= 10
 
             if simbolo == "P":
 

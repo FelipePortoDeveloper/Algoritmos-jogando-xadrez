@@ -30,7 +30,6 @@ def desenhar_menu_promocao(tela, cor, x):
 
     pygame.display.flip()
 
-
 def escolher_promocao(tela, cor, x):
     desenhar_menu_promocao(tela, cor, x)
     while True:
