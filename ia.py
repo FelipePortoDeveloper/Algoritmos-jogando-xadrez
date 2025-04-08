@@ -120,6 +120,9 @@ class XadrezIA:
         if movimento is not None and tabuleiro.is_legal(movimento):
             tabuleiro.pop()
 
+        if tabuleiro.is_repetition(2):
+            pontos -= 200
+
         return pontos
     
     def minimax(self, tabuleiro:chess.Board, profundidade: int, maximizando: bool, alpha: float, beta: float, movimento_anterior: chess.Move = None):
