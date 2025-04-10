@@ -236,27 +236,30 @@ class XadrezIA:
         return None
 
     def obter_melhor_movimento(self, tabuleiro: chess.Board):
-
         movimento_livro = self.obter_movimento_abertura(tabuleiro)
-
-        if movimento_livro is not None:
+        if movimento_livro:
             return movimento_livro
 
-        movimentos = list(tabuleiro.legal_moves)
         melhor_movimento = None
+        melhor_valor = 0
 
         for profundidade_atual in range(1, self.profundidade + 1):
-            pontos_movimentos = []
+            alpha = melhor_valor - 50
+            beta = melhor_valor + 50
+            movimentos = list(tabuleiro.legal_moves)
+            movimentos = self.ordenar_movimentos(tabuleiro, movimentos)
+            melhor_valor = -float("inf")
 
             for movimento in movimentos:
                 tabuleiro.push(movimento)
-                pontos = self.minimax(tabuleiro, profundidade_atual - 1, False, -float("inf"), float("inf"), movimento)
+                valor = self.minimax(tabuleiro, profundidade_atual - 1, False, alpha, beta, movimento)
                 tabuleiro.pop()
-                pontos_movimentos.append((movimento, pontos))
 
-            pontos_movimentos.sort(key=lambda x: x[1], reverse=True)
-            movimentos = [mov for mov, _ in pontos_movimentos]
+                if valor > melhor_valor:
+                    melhor_valor = valor
+                    melhor_movimento = movimento
 
-            melhor_movimento = movimentos[0]
+                alpha = max(alpha, melhor_valor)
 
         return melhor_movimento
+

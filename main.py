@@ -50,7 +50,7 @@ def main():
 
     carregar_imagens()
     jogo = JogoXadrez()
-    ia = XadrezIA(profundidade=3)
+    ia = XadrezIA(profundidade=5)
 
     rodando = True
     quadrado_selecionado = None
