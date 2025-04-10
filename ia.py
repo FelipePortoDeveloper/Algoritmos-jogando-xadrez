@@ -153,7 +153,7 @@ class XadrezIA:
 
         for quadrado, peca in tabuleiro.piece_map().items():
             if peca.color == self.cor and tabuleiro.is_pinned(self.cor, quadrado):
-                pontos -= 20
+                pontos -= 40
 
         # Avaliando Forks
 
@@ -166,9 +166,10 @@ class XadrezIA:
 
             for alvo in ataques:
                 peca_alvo = tabuleiro.piece_at(alvo)
-                if peca_alvo.color != self.cor:
+                if peca_alvo is not None and peca_alvo.color != self.cor:
                     if peca_alvo.symbol().upper() in ["B", "R", "Q", "N"]:
                         alvos += 1
+
                 
             if alvos >= 2:
                 pontos += 30
