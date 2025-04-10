@@ -9,6 +9,7 @@ class XadrezIA:
 
         self.profundidade = profundidade
         self.cor = cor
+        self.valores = {"P": 10, "N": 30, "B": 30, "R": 50, "Q": 90, "K": 900}
 
         with open("posicoes_ideais_w.json", "r") as w:
             self.posicoes_ideais_w = {k: np.array(v) for k, v in json.load(w).items()}
@@ -40,9 +41,41 @@ class XadrezIA:
         else:
             return False
 
+    def avaliar_movimento(self, tabuleiro:chess.Board, movimento: chess.Move):
+        pontos = 0
+
+        if tabuleiro.is_capture(movimento):
+            peca_capturada = tabuleiro.piece_at(movimento.to_square)
+            peca_atacante = tabuleiro.piece_at(movimento.from_square)
+
+            if peca_atacante and peca_atacante.color == self.cor and peca_capturada:
+
+                simbolo_a = peca_atacante.symbol().upper()
+                simbolo_c = peca_capturada.symbol().upper()
+
+                pontos += self.valores[simbolo_c] - self.valores[simbolo_a]
+                    
+        if tabuleiro.gives_check(movimento):
+            pontos += 50
+
+        if tabuleiro.is_castling(movimento):
+            pontos += 40
+
+        return pontos
+
+    def ordenar_movimentos(self, tabuleiro:chess.Board, movimentos: list):
+        movimentos_avaliados = []
+
+        for movimento in movimentos:
+            pontos = self.avaliar_movimento(tabuleiro, movimento)
+            movimentos_avaliados.append((movimento, pontos))
+
+        movimentos_avaliados.sort(key=lambda x: x[1], reverse=True)
+
+        return [move for move, _ in movimentos_avaliados]
+
     def avaliar_tabuleiro(self, tabuleiro:chess.Board, movimento: chess.Move = None):
         
-        valores = {"P": 10, "N": 30, "B": 30, "R": 50, "Q": 90, "K": 900}
         pontos = 0
         centro = [chess.D4, chess.E4, chess.D5, chess.E5]
 
@@ -51,22 +84,7 @@ class XadrezIA:
         if movimento != None:
             if tabuleiro.is_legal(movimento):
 
-                if tabuleiro.is_capture(movimento):
-                    peca_capturada = tabuleiro.piece_at(movimento.to_square)
-                    peca_atacante = tabuleiro.piece_at(movimento.from_square)
-
-                    if peca_atacante and peca_atacante.color == self.cor and peca_capturada:
-
-                        simbolo_a = peca_atacante.symbol().upper()
-                        simbolo_c = peca_capturada.symbol().upper()
-
-                        pontos += valores[simbolo_c] - valores[simbolo_a]
-                    
-                if tabuleiro.gives_check(movimento):
-                    pontos += 50
-
-                if tabuleiro.is_castling(movimento):
-                    pontos += 40
+                pontos += self.avaliar_movimento(tabuleiro, movimento)
 
                 # Simular o movimento
             
@@ -78,7 +96,7 @@ class XadrezIA:
                                 
             linha, coluna = divmod(quadrado, 8)
             simbolo = peca.symbol().upper()
-            valor_peca = valores[simbolo]
+            valor_peca = self.valores[simbolo]
 
             if simbolo == "K":
                 bonus = self.posicoes_ideais[simbolo + "_l"][linha][coluna] if self.estagio_jogo(tabuleiro) else self.posicoes_ideais[simbolo + "_e"][linha][coluna]
@@ -102,6 +120,9 @@ class XadrezIA:
             else:
                 pontos -= valor_peca + bonus
 
+        # Terminando avaliação de movimento
+        if movimento is not None and tabuleiro.is_legal(movimento):
+            tabuleiro.pop()
                 
         # Avaliando cheque
 
@@ -118,12 +139,39 @@ class XadrezIA:
         if tabuleiro.is_stalemate() or tabuleiro.is_insufficient_material():
             pontos -= 900
 
-        # Terminando avaliação
-        if movimento is not None and tabuleiro.is_legal(movimento):
-            tabuleiro.pop()
+        # Avaliando repetição
 
         if tabuleiro.is_repetition(2):
             pontos -= 200
+
+        # Avaliando Mobilidade
+
+        mobilidade = sum(len(list(tabuleiro.legal_moves)) for p in tabuleiro.piece_map().values() if p.color == self.cor)
+        pontos += mobilidade
+
+        # Avaliando pins
+
+        for quadrado, peca in tabuleiro.piece_map().items():
+            if peca.color == self.cor and tabuleiro.is_pinned(self.cor, quadrado):
+                pontos -= 20
+
+        # Avaliando Forks
+
+        for quadrado, peca in tabuleiro.piece_map().items():
+            if peca.color != self.cor:
+                continue
+
+            ataques = tabuleiro.attacks(quadrado)
+            alvos = 0
+
+            for alvo in ataques:
+                peca_alvo = tabuleiro.piece_at(alvo)
+                if peca_alvo.color != self.cor:
+                    if peca_alvo.symbol().upper() in ["B", "R", "Q", "N"]:
+                        alvos += 1
+                
+            if alvos >= 2:
+                pontos += 30
 
         return pontos
     
@@ -137,7 +185,7 @@ class XadrezIA:
         if maximizando:
             melhor_valor = -float("inf")
 
-            for movimento in list(tabuleiro.legal_moves):
+            for movimento in self.ordenar_movimentos(tabuleiro, list(tabuleiro.legal_moves)):
                 tabuleiro.push(movimento)
                 valor = self.minimax(tabuleiro, profundidade - 1, False, alpha, beta, movimento)
                 tabuleiro.pop()
@@ -149,7 +197,7 @@ class XadrezIA:
         else:
             melhor_valor = float("inf")
 
-            for movimento in list(tabuleiro.legal_moves):
+            for movimento in self.ordenar_movimentos(tabuleiro, list(tabuleiro.legal_moves)):
                 tabuleiro.push(movimento)
                 valor = self.minimax(tabuleiro, profundidade - 1, True, alpha, beta, movimento)
                 tabuleiro.pop()
