@@ -85,7 +85,11 @@ def main():
                 quadrado = chess.square(coluna, linha)
 
                 if quadrado_selecionado is None:
-                    quadrado_selecionado = quadrado
+
+                    peca = jogo.board.piece_at(quadrado)
+
+                    if peca and peca.color == chess.WHITE:
+                        quadrado_selecionado = quadrado
                 else:
                     movimento = chess.Move(quadrado_selecionado, quadrado)
 
