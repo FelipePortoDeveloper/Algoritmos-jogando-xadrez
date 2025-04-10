@@ -3,13 +3,38 @@ import json
 import numpy as np
 import chess.polyglot
 
+class Avaliacao:
+    VALOR_PECA = {
+        "P": 100,
+        "N": 300,
+        "B": 300,
+        "R": 500,
+        "Q": 900,
+        "K": 10000
+    }
+
+    BONUS_PECA_CENTRO = 20
+    BONUS_FORK = 30
+    PENALIDADE_PIN = 50
+    PENALIDADE_PENDURADA_FRACAO = 1/3
+    BONUS_DESENVOLVIDA = 10
+    PENALIDADE_NAO_DESENVOLVIDA = 15
+    BONUS_CONTROLE_CENTRO = 10
+    BONUS_CHECK = 50
+    BONUS_CASTLING = 25
+    PENALIDADE_EMPATE = 300
+    PENALIDADE_REPETICAO = 200
+    BONUS_MOBILIDADE = 2
+    BONUS_CHECKMATE = 11000
+
+
 class XadrezIA:
 
     def __init__(self, profundidade = 2, cor = chess.BLACK):
 
         self.profundidade = profundidade
         self.cor = cor
-        self.valores = {"P": 10, "N": 30, "B": 30, "R": 50, "Q": 90, "K": 900}
+        self.valores = Avaliacao.VALOR_PECA
         self.tabela_transposicao = {}
 
         with open("posicoes_ideais_w.json", "r") as w:
@@ -52,14 +77,15 @@ class XadrezIA:
                 simbolo_a = peca_atacante.symbol().upper()
                 simbolo_c = peca_capturada.symbol().upper()
                 pontos += self.valores[simbolo_c] - self.valores[simbolo_a]
-                    
+
         if tabuleiro.gives_check(movimento):
-            pontos += 50
+            pontos += Avaliacao.BONUS_CHECK
 
         if tabuleiro.is_castling(movimento):
-            pontos += 40
+            pontos += Avaliacao.BONUS_CASTLING
 
         return pontos
+
 
     def ordenar_movimentos(self, tabuleiro: chess.Board, movimentos: list):
         movimentos_avaliados = []
@@ -77,16 +103,11 @@ class XadrezIA:
         centro = [chess.D4, chess.E4, chess.D5, chess.E5]
         simulou = False
 
-        # Avaliando captura:
-        if movimento is not None:
-            if tabuleiro.is_legal(movimento):
-                score += self.avaliar_movimento(tabuleiro, movimento)
-                # Simular o movimento
-                tabuleiro.push(movimento)
-                simulou = True
+        if movimento is not None and tabuleiro.is_legal(movimento):
+            score += self.avaliar_movimento(tabuleiro, movimento)
+            tabuleiro.push(movimento)
+            simulou = True
 
-        # Avaliando posição e padrões táticos
-        # Definindo as casas iniciais para desenvolvimento das peças menores
         if self.cor == chess.WHITE:
             pos_iniciais_knight = {chess.B1, chess.G1}
             pos_iniciais_bishop = {chess.C1, chess.F1}
@@ -99,81 +120,62 @@ class XadrezIA:
             simbolo = peca.symbol().upper()
             valor_peca = self.valores[simbolo]
 
-            # Bônus posicional
             if simbolo == "K":
                 bonus = self.posicoes_ideais[simbolo + "_l"][linha][coluna] if self.estagio_jogo(tabuleiro) else self.posicoes_ideais[simbolo + "_e"][linha][coluna]
             else:
                 bonus = self.posicoes_ideais[simbolo][linha][coluna]
 
-            # Bônus para peões no centro
-            if simbolo == "P" and peca.color == self.cor:
-                if quadrado in centro:
-                    bonus += 50
+            if simbolo == "P" and peca.color == self.cor and quadrado in centro:
+                bonus += Avaliacao.BONUS_PECA_CENTRO
 
-            # Acumulação do valor da peça com bônus
             if peca.color == self.cor:
                 score += valor_peca + bonus
             else:
                 score -= valor_peca + bonus
 
-            # Avaliar padrões táticos adicionais:
             if peca.color == self.cor:
-                # Peça pendurada
                 if tabuleiro.is_attacked_by(not self.cor, quadrado) and not tabuleiro.is_attacked_by(self.cor, quadrado):
-                    score -= valor_peca // 2
+                    score -= int(valor_peca * Avaliacao.PENALIDADE_PENDURADA_FRACAO)
 
-                # Pins
                 if tabuleiro.is_pinned(self.cor, quadrado):
-                    score -= 40
+                    score -= Avaliacao.PENALIDADE_PIN
 
-                # Forks
                 alvos = 0
                 for alvo in tabuleiro.attacks(quadrado):
                     peca_alvo = tabuleiro.piece_at(alvo)
-                    if peca_alvo is not None and peca_alvo.color != self.cor:
-                        if peca_alvo.symbol().upper() in ["B", "R", "Q", "N"]:
-                            alvos += 1
+                    if peca_alvo and peca_alvo.color != self.cor and peca_alvo.symbol().upper() in ["B", "R", "Q", "N"]:
+                        alvos += 1
                 if alvos >= 2:
-                    score += 30
+                    score += Avaliacao.BONUS_FORK
 
-                # Desenvolvimento
                 if peca.piece_type in [chess.KNIGHT, chess.BISHOP]:
                     if quadrado in pos_iniciais_knight or quadrado in pos_iniciais_bishop:
-                        score -= 10
+                        score -= Avaliacao.PENALIDADE_NAO_DESENVOLVIDA
                     else:
-                        score += 5
+                        score += Avaliacao.BONUS_DESENVOLVIDA
 
-                # Controle do Centro
                 for alvo in tabuleiro.attacks(quadrado):
                     if alvo in centro:
-                        score += 5
+                        score += Avaliacao.BONUS_CONTROLE_CENTRO
                         break
 
-        # Terminando avaliação de movimento
         if simulou:
             tabuleiro.pop()
 
-        # Avaliando cheque
         if tabuleiro.is_check():
-            score += 100 if tabuleiro.turn != self.cor else -100
-
-        # Avaliando cheque-mate
+            score += Avaliacao.BONUS_CHECK if tabuleiro.turn != self.cor else -Avaliacao.BONUS_CHECK
         if tabuleiro.is_checkmate():
-            score += 1000 if tabuleiro.turn != self.cor else -1000
-
-        # Avaliando empate
+            score += Avaliacao.BONUS_CHECKMATE if tabuleiro.turn != self.cor else -Avaliacao.BONUS_CHECKMATE
         if tabuleiro.is_stalemate() or tabuleiro.is_insufficient_material():
-            score -= 900
-
-        # Avaliando repetição
+            score -= Avaliacao.PENALIDADE_EMPATE
         if tabuleiro.is_repetition(2):
-            score -= 200
+            score -= Avaliacao.PENALIDADE_REPETICAO
 
-        # Avaliando Mobilidade
         mobilidade = sum(len(list(tabuleiro.legal_moves)) for peca in tabuleiro.piece_map().values() if peca.color == self.cor)
-        score += mobilidade
+        score += mobilidade * Avaliacao.BONUS_MOBILIDADE
 
         return score
+
 
     def minimax(self, tabuleiro: chess.Board, profundidade: int, maximizando: bool, alpha: float, beta: float, movimento_anterior: chess.Move = None):
 
