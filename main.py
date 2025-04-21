@@ -1,3 +1,5 @@
+import json
+import os
 import pygame, sys, chess
 from jogo import JogoXadrez
 from ia import XadrezIA
@@ -50,7 +52,12 @@ def main():
 
     carregar_imagens()
     jogo = JogoXadrez()
-    ia = XadrezIA(profundidade=5)
+
+    if os.path.exists("melhor_individuo.json"):
+        with open("melhor_individuo.json", "r") as f:
+            parametros = json.load(f)
+
+    ia = XadrezIA(profundidade=4, cor=chess.BLACK, parametros_personalizados=parametros)
 
     rodando = True
     quadrado_selecionado = None
@@ -65,7 +72,7 @@ def main():
 
         pygame.display.flip()
 
-        if jogo.fim_de_jogo():
+        if jogo.fim_de_jogo() and not jogo.board.is_checkmate():
             print("Fim de jogo")
             rodando = False
             break
@@ -78,7 +85,7 @@ def main():
             if pygame.key.get_pressed()[pygame.K_r]:
                 jogo.reinicia_jogo()
 
-            if event.type == pygame.MOUSEBUTTONDOWN and jogo.board.turn == chess.WHITE:
+            if event.type == pygame.MOUSEBUTTONDOWN and jogo.board.turn != ia.cor:
                 x, y = event.pos
                 coluna = int(x // TAM_QUADRADOS)
                 linha = 7 - int(y // TAM_QUADRADOS)
@@ -88,7 +95,7 @@ def main():
 
                     peca = jogo.board.piece_at(quadrado)
 
-                    if peca and peca.color == chess.WHITE:
+                    if peca and peca.color != ia.cor:
                         quadrado_selecionado = quadrado
                 else:
                     movimento = chess.Move(quadrado_selecionado, quadrado)
@@ -105,7 +112,7 @@ def main():
                     quadrado_selecionado = None
 
         # Movimento da IA
-        if not jogo.fim_de_jogo() and jogo.board.turn == chess.BLACK:
+        if not jogo.fim_de_jogo() and jogo.board.turn == ia.cor:
             movimento = ia.obter_melhor_movimento(jogo.board)
             if movimento:
                 jogo.movimento(movimento)

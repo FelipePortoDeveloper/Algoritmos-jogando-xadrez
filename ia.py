@@ -1,119 +1,72 @@
 import chess
 import json
 import numpy as np
+import random
 import chess.polyglot
-
-class Avaliacao:
-    VALOR_PECA = {
-        "P": 100,
-        "N": 300,
-        "B": 300,
-        "R": 500,
-        "Q": 900,
-        "K": 10000
-    }
-
-    BONUS_PECA_CENTRO = 20
-    BONUS_FORK = 30
-    PENALIDADE_PIN = 50
-    PENALIDADE_PENDURADA_FRACAO = 1/3
-    BONUS_DESENVOLVIDA = 10
-    PENALIDADE_NAO_DESENVOLVIDA = 15
-    BONUS_CONTROLE_CENTRO = 10
-    BONUS_CHECK = 50
-    BONUS_CASTLING = 25
-    PENALIDADE_EMPATE = 300
-    PENALIDADE_REPETICAO = 200
-    BONUS_MOBILIDADE = 2
-    BONUS_CHECKMATE = 11000
-
 
 class XadrezIA:
 
-    def __init__(self, profundidade = 2, cor = chess.BLACK):
-
+    def __init__(self, profundidade=2, cor=chess.BLACK, parametros_personalizados=None):
         self.profundidade = profundidade
         self.cor = cor
-        self.valores = Avaliacao.VALOR_PECA
         self.tabela_transposicao = {}
+
+        self.parametros = parametros_personalizados or self.gerar_parametros_aleatorios()
+        self.valores = self.parametros["VALOR_PECA"]
 
         with open("posicoes_ideais_w.json", "r") as w:
             self.posicoes_ideais_w = {k: np.array(v) for k, v in json.load(w).items()}
-
         with open("posicoes_ideais_b.json", "r") as b:
             self.posicoes_ideais_b = {k: np.array(v) for k, v in json.load(b).items()}
 
-        if cor == chess.BLACK:
-            self.posicoes_ideais = self.posicoes_ideais_b
-        else:
-            self.posicoes_ideais = self.posicoes_ideais_w
+        self.posicoes_ideais = self.posicoes_ideais_b if cor == chess.BLACK else self.posicoes_ideais_w
+
+    def gerar_parametros_aleatorios(self):
+        return {
+            "VALOR_PECA": {
+                "P": random.randint(80, 120),
+                "N": random.randint(250, 350),
+                "B": random.randint(250, 350),
+                "R": random.randint(450, 550),
+                "Q": random.randint(850, 950),
+                "K": 10000
+            },
+            "BONUS_PECA_CENTRO": random.randint(10, 40),
+            "BONUS_FORK": random.randint(20, 60),
+            "PENALIDADE_PIN": random.randint(30, 70),
+            "PENALIDADE_PENDURADA_FRACAO": round(random.uniform(0.2, 0.6), 2),
+            "BONUS_DESENVOLVIDA": random.randint(5, 20),
+            "PENALIDADE_NAO_DESENVOLVIDA": random.randint(10, 30),
+            "BONUS_CONTROLE_CENTRO": random.randint(5, 20),
+            "BONUS_CHECK": random.randint(30, 70),
+            "BONUS_CASTLING": random.randint(15, 40),
+            "PENALIDADE_EMPATE": random.randint(200, 400),
+            "PENALIDADE_REPETICAO": random.randint(150, 250),
+            "BONUS_MOBILIDADE": random.randint(1, 5),
+            "BONUS_DEFESA": random.randint(1, 5),
+            "PENALIDADE_REI_SOBATAQUE": random.randint(1, 10),
+            "BONUS_CHECKMATE": 11000
+        }
 
     def estagio_jogo(self, tabuleiro: chess.Board):
-
-        # retorna True se for late game e False se for early game
         rainhas = [p for p in tabuleiro.piece_map().values() if p.piece_type == chess.QUEEN]
-
         if len(rainhas) == 0:
             return True
         elif len(rainhas) == 1:
             cor = rainhas[0].color
             menores = [p for p in tabuleiro.piece_map().values() if p.piece_type in [chess.KNIGHT, chess.BISHOP] and p.color == cor]
+            return len(menores) <= 1
+        return False
 
-            if len(menores) <= 1:
-                return True
-            else:
-                return False
-        else:
-            return False
-
-    def avaliar_movimento(self, tabuleiro: chess.Board, movimento: chess.Move):
-        pontos = 0
-
-        if tabuleiro.is_capture(movimento):
-            peca_capturada = tabuleiro.piece_at(movimento.to_square)
-            peca_atacante = tabuleiro.piece_at(movimento.from_square)
-
-            if peca_atacante and peca_atacante.color == self.cor and peca_capturada:
-                simbolo_a = peca_atacante.symbol().upper()
-                simbolo_c = peca_capturada.symbol().upper()
-                pontos += self.valores[simbolo_c] - self.valores[simbolo_a]
-
-        if tabuleiro.gives_check(movimento):
-            pontos += Avaliacao.BONUS_CHECK
-
-        if tabuleiro.is_castling(movimento):
-            pontos += Avaliacao.BONUS_CASTLING
-
-        return pontos
-
-
-    def ordenar_movimentos(self, tabuleiro: chess.Board, movimentos: list):
-        movimentos_avaliados = []
-
-        for movimento in movimentos:
-            pontos = self.avaliar_movimento(tabuleiro, movimento)
-            movimentos_avaliados.append((movimento, pontos))
-
-        movimentos_avaliados.sort(key=lambda x: x[1], reverse=True)
-
-        return [move for move, _ in movimentos_avaliados]
-
-    def avaliar_tabuleiro(self, tabuleiro: chess.Board, movimento: chess.Move = None):
+    def avaliar_tabuleiro(self, tabuleiro: chess.Board):
         score = 0
         centro = [chess.D4, chess.E4, chess.D5, chess.E5]
-        simulou = False
-
-        if movimento is not None and tabuleiro.is_legal(movimento):
-            score += self.avaliar_movimento(tabuleiro, movimento)
-            tabuleiro.push(movimento)
-            simulou = True
-
         if self.cor == chess.WHITE:
-            pos_iniciais_knight = {chess.B1, chess.G1}
-            pos_iniciais_bishop = {chess.C1, chess.F1}
+            iniciais_knight = {chess.B1, chess.G1}
+            iniciais_bishop = {chess.C1, chess.F1}
         else:
-            pos_iniciais_knight = {chess.B8, chess.G8}
-            pos_iniciais_bishop = {chess.C8, chess.F8}
+            iniciais_knight = {chess.B8, chess.G8}
+            iniciais_bishop = {chess.C8, chess.F8}
 
         for quadrado, peca in tabuleiro.piece_map().items():
             linha, coluna = divmod(quadrado, 8)
@@ -126,7 +79,7 @@ class XadrezIA:
                 bonus = self.posicoes_ideais[simbolo][linha][coluna]
 
             if simbolo == "P" and peca.color == self.cor and quadrado in centro:
-                bonus += Avaliacao.BONUS_PECA_CENTRO
+                bonus += self.parametros["BONUS_PECA_CENTRO"]
 
             if peca.color == self.cor:
                 score += valor_peca + bonus
@@ -135,10 +88,9 @@ class XadrezIA:
 
             if peca.color == self.cor:
                 if tabuleiro.is_attacked_by(not self.cor, quadrado) and not tabuleiro.is_attacked_by(self.cor, quadrado):
-                    score -= int(valor_peca * Avaliacao.PENALIDADE_PENDURADA_FRACAO)
-
+                    score -= int(valor_peca * self.parametros["PENALIDADE_PENDURADA_FRACAO"])
                 if tabuleiro.is_pinned(self.cor, quadrado):
-                    score -= Avaliacao.PENALIDADE_PIN
+                    score -= self.parametros["PENALIDADE_PIN"]
 
                 alvos = 0
                 for alvo in tabuleiro.attacks(quadrado):
@@ -146,120 +98,221 @@ class XadrezIA:
                     if peca_alvo and peca_alvo.color != self.cor and peca_alvo.symbol().upper() in ["B", "R", "Q", "N"]:
                         alvos += 1
                 if alvos >= 2:
-                    score += Avaliacao.BONUS_FORK
+                    score += self.parametros["BONUS_FORK"]
 
                 if peca.piece_type in [chess.KNIGHT, chess.BISHOP]:
-                    if quadrado in pos_iniciais_knight or quadrado in pos_iniciais_bishop:
-                        score -= Avaliacao.PENALIDADE_NAO_DESENVOLVIDA
+                    if quadrado in iniciais_knight or quadrado in iniciais_bishop:
+                        score -= self.parametros["PENALIDADE_NAO_DESENVOLVIDA"]
                     else:
-                        score += Avaliacao.BONUS_DESENVOLVIDA
+                        score += self.parametros["BONUS_DESENVOLVIDA"]
 
                 for alvo in tabuleiro.attacks(quadrado):
                     if alvo in centro:
-                        score += Avaliacao.BONUS_CONTROLE_CENTRO
-                        break
-
-        if simulou:
-            tabuleiro.pop()
+                        score += self.parametros["BONUS_CONTROLE_CENTRO"]
 
         if tabuleiro.is_check():
-            score += Avaliacao.BONUS_CHECK if tabuleiro.turn != self.cor else -Avaliacao.BONUS_CHECK
+            score += self.parametros["BONUS_CHECK"] if tabuleiro.turn != self.cor else -self.parametros["BONUS_CHECK"]
         if tabuleiro.is_checkmate():
-            score += Avaliacao.BONUS_CHECKMATE if tabuleiro.turn != self.cor else -Avaliacao.BONUS_CHECKMATE
+            score += self.parametros["BONUS_CHECKMATE"] if tabuleiro.turn != self.cor else -self.parametros["BONUS_CHECKMATE"]
         if tabuleiro.is_stalemate() or tabuleiro.is_insufficient_material():
-            score -= Avaliacao.PENALIDADE_EMPATE
+            score -= self.parametros["PENALIDADE_EMPATE"]
         if tabuleiro.is_repetition(2):
-            score -= Avaliacao.PENALIDADE_REPETICAO
+            score -= self.parametros["PENALIDADE_REPETICAO"]
 
-        mobilidade = sum(len(list(tabuleiro.legal_moves)) for peca in tabuleiro.piece_map().values() if peca.color == self.cor)
-        score += mobilidade * Avaliacao.BONUS_MOBILIDADE
+        movimento_aliados = sum(1 for mov in tabuleiro.legal_moves if tabuleiro.piece_at(mov.from_square) and tabuleiro.piece_at(mov.from_square).color == self.cor)
+        movimento_inimigos = sum(1 for mov in tabuleiro.legal_moves if  tabuleiro.piece_at(mov.from_square) and tabuleiro.piece_at(mov.from_square).color != self.cor)
+
+        score += self.parametros["BONUS_MOBILIDADE"] * (movimento_aliados - movimento_inimigos)
+
+        # segurança do rei
+
+        quadrado_rei = tabuleiro.king(self.cor)
+
+        if quadrado_rei is not None:
+            adjacentes = [quad for quad in chess.SQUARES if chess.square_distance(quadrado_rei, quad) == 1]
+            bonus_defesa = 0
+
+            for quadrado in adjacentes:
+                peca_adj = tabuleiro.piece_at(quadrado)
+
+                if peca_adj and peca_adj.color == self.cor and peca_adj.symbol().upper() == "P":
+                    bonus_defesa += self.parametros["BONUS_DEFESA"]
+
+            score += bonus_defesa
+
+            penalidade_ataques = 0
+
+            for quadrado in adjacentes:
+                if tabuleiro.is_attacked_by(not self.cor, quadrado):
+                    penalidade_ataques += 1
+
+            score -= self.parametros["PENALIDADE_REI_SOBATAQUE"] * penalidade_ataques
 
         return score
 
+    def ordenar_movimentos(self, tabuleiro, movimentos):
+        def prioridade(m):
+            score = 0
+            if tabuleiro.is_capture(m):
+                score += 15
+            if tabuleiro.gives_check(m):
+                score += 5
+            if tabuleiro.is_castling(m):
+                score += 7
+            return score
+        return sorted(movimentos, key=prioridade, reverse=True)
 
-    def minimax(self, tabuleiro: chess.Board, profundidade: int, maximizando: bool, alpha: float, beta: float, movimento_anterior: chess.Move = None):
-
-        tabuleiro_hash = hash(tabuleiro.fen())
-
-        if tabuleiro_hash in self.tabela_transposicao: 
-            entrada = self.tabela_transposicao[tabuleiro_hash]
-            if entrada["profundidade"] >= profundidade:
-                return entrada["valor"]
-
-        avaliacao_atual = self.avaliar_tabuleiro(tabuleiro, movimento_anterior)
+    def minimax(self, tabuleiro, profundidade, maximizando, alpha, beta):
+        if tabuleiro.fen() in self.tabela_transposicao:
+            valor, prof_salva = self.tabela_transposicao[tabuleiro.fen()]
+            if prof_salva >= profundidade:
+                return valor
 
         if profundidade == 0 or tabuleiro.is_game_over():
-            self.tabela_transposicao[tabuleiro_hash] = {"valor": avaliacao_atual, "profundidade": profundidade}
-            return avaliacao_atual
-        
+            valor = self.avaliar_tabuleiro(tabuleiro)
+            self.tabela_transposicao[tabuleiro.fen()] = (valor, profundidade)
+            return valor
+
+        movimentos = self.ordenar_movimentos(tabuleiro, list(tabuleiro.legal_moves))
+
         if maximizando:
             melhor_valor = -float("inf")
-
-            for movimento in self.ordenar_movimentos(tabuleiro, list(tabuleiro.legal_moves)):
+            for movimento in movimentos:
                 tabuleiro.push(movimento)
-                valor = self.minimax(tabuleiro, profundidade - 1, False, alpha, beta, movimento)
+                valor = self.minimax(tabuleiro, profundidade - 1, False, alpha, beta)
                 tabuleiro.pop()
                 melhor_valor = max(melhor_valor, valor)
                 alpha = max(alpha, melhor_valor)
                 if beta <= alpha:
                     break
-
-            self.tabela_transposicao[tabuleiro_hash] = {"valor": melhor_valor, "profundidade": profundidade}
+            self.tabela_transposicao[tabuleiro.fen()] = (melhor_valor, profundidade)
             return melhor_valor
         else:
             melhor_valor = float("inf")
-
-            for movimento in self.ordenar_movimentos(tabuleiro, list(tabuleiro.legal_moves)):
+            for movimento in movimentos:
                 tabuleiro.push(movimento)
-                valor = self.minimax(tabuleiro, profundidade - 1, True, alpha, beta, movimento)
+                valor = self.minimax(tabuleiro, profundidade - 1, True, alpha, beta)
                 tabuleiro.pop()
                 melhor_valor = min(melhor_valor, valor)
                 beta = min(beta, melhor_valor)
                 if beta <= alpha:
                     break
-            
-            self.tabela_transposicao[tabuleiro_hash] = {"valor": melhor_valor, "profundidade": profundidade}
+            self.tabela_transposicao[tabuleiro.fen()] = (melhor_valor, profundidade)
             return melhor_valor
 
     def obter_movimento_abertura(self, tabuleiro: chess.Board):
         try:
             with chess.polyglot.open_reader("Perfect2017.bin") as leitor:
                 entradas = list(leitor.find_all(tabuleiro))
-
+                
                 if entradas:
-                    melhor_entrada = max(entradas, key= lambda entrada: entrada.weight)
-                    return melhor_entrada.move
-            
-        except Exception as e:
-            print("Erro ao acessar o livro de aberturas:", e)
-
+                    return max(entradas, key=lambda e: e.weight).move
+        except:
+            pass
         return None
 
-    def obter_melhor_movimento(self, tabuleiro: chess.Board):
-        movimento_livro = self.obter_movimento_abertura(tabuleiro)
-        if movimento_livro:
-            return movimento_livro
+    def obter_melhor_movimento(self, tabuleiro):
+        movimento_abertura = self.obter_movimento_abertura(tabuleiro)
+        if movimento_abertura:
+            return movimento_abertura
 
+        melhor_valor = -float("inf")
         melhor_movimento = None
-        melhor_valor = 0
-
-        for profundidade_atual in range(1, self.profundidade + 1):
-            alpha = melhor_valor - 50
-            beta = melhor_valor + 50
-            movimentos = list(tabuleiro.legal_moves)
-            movimentos = self.ordenar_movimentos(tabuleiro, movimentos)
-            melhor_valor = -float("inf")
-
-            for movimento in movimentos:
-                tabuleiro.push(movimento)
-                valor = self.minimax(tabuleiro, profundidade_atual - 1, False, alpha, beta, movimento)
-                tabuleiro.pop()
-
-                if valor > melhor_valor:
-                    melhor_valor = valor
-                    melhor_movimento = movimento
-
-                alpha = max(alpha, melhor_valor)
-
+        for movimento in self.ordenar_movimentos(tabuleiro, list(tabuleiro.legal_moves)):
+            tabuleiro.push(movimento)
+            valor = self.minimax(tabuleiro, self.profundidade - 1, False, -float("inf"), float("inf"))
+            tabuleiro.pop()
+            if valor > melhor_valor:
+                melhor_valor = valor
+                melhor_movimento = movimento
         return melhor_movimento
 
+import os
+
+def mutar_parametros(parametros):
+    novos = json.loads(json.dumps(parametros))
+    for k, v in novos.items():
+        if isinstance(v, dict):
+            for sub_k in v:
+                if sub_k != "K":
+                    v[sub_k] += random.randint(-20, 20)
+                    v[sub_k] = max(1, v[sub_k])
+        elif isinstance(v, int):
+            novos[k] += random.randint(-10, 10)
+            novos[k] = max(1, novos[k])
+        elif isinstance(v, float):
+            novos[k] += round(random.uniform(-0.1, 0.1), 2)
+            novos[k] = max(0.01, novos[k])
+
+    return novos
+
+
+def mostrar_parametros_ia(ia: XadrezIA, titulo="Parâmetros da IA"):
+    print("\n" + "="*60)
+    print(f"{titulo}".center(60))
+    print("="*60)
+    for chave, valor in ia.parametros.items():
+        if isinstance(valor, dict):
+            print(f"\n{chave}:")
+            for subk, subv in valor.items():
+                print(f"  {subk}: {subv}")
+        else:
+            print(f"{chave}: {valor}")
+    print("="*60 + "\n")
+
+
+def jogar_partida(ia1, ia2):
+    jogo = chess.Board()
+    while not jogo.is_game_over():
+        atual = ia1 if jogo.turn == ia1.cor else ia2
+        movimento = atual.obter_melhor_movimento(jogo)
+        if movimento:
+            print(movimento)
+            jogo.push(movimento)
+    return jogo.result()
+
+
+def train_selfplay(geracoes=5, profundidade=4):
+    
+    if os.path.exists("melhor_individuo.json"):
+        with open("melhor_individuo.json", "r") as f:
+            parametros = json.load(f)
+        melhor_antigo = XadrezIA(profundidade=profundidade, parametros_personalizados=parametros)
+    else:
+        melhor_antigo = XadrezIA(profundidade=profundidade)
+
+    melhor_ia = melhor_antigo
+
+    for rodada in range(geracoes):
+        ia_mutado = XadrezIA(profundidade=profundidade,
+                             cor=chess.BLACK if melhor_ia.cor == chess.WHITE else chess.WHITE,
+                             parametros_personalizados=mutar_parametros(melhor_ia.parametros))
+
+        resultado = jogar_partida(melhor_ia, ia_mutado)
+        print(f"Geração {rodada+1} - Resultado: {resultado}")
+
+        if (resultado == "1-0" and melhor_ia.cor == chess.WHITE) or (resultado == "0-1" and melhor_ia.cor == chess.BLACK):
+            melhor_ia = melhor_ia
+        else:
+            melhor_ia = ia_mutado
+
+    
+    vitorias_novo = 0
+    for i in range(3):
+        jogo = chess.Board()
+        ia_novo = melhor_ia
+        ia_velho = melhor_antigo
+        resultado = jogar_partida(ia_novo, ia_velho)
+        print(f"Jogo de verificação {i+1} - Resultado: {resultado}")
+
+        if (resultado == "1-0" and ia_novo.cor == chess.WHITE) or (resultado == "0-1" and ia_novo.cor == chess.BLACK):
+            vitorias_novo += 1
+
+    if vitorias_novo >= 2:
+        print("Novo melhor indivíduo identificado! Salvando...")
+        with open("melhor_individuo.json", "w") as f:
+            json.dump(melhor_ia.parametros, f, indent=2)
+        mostrar_parametros_ia(melhor_ia, "Novo Melhor Indivíduo")
+    else:
+        print("O novo indivíduo não superou o antigo.")
+        mostrar_parametros_ia(melhor_antigo, "Melhor Antigo Mantido")
