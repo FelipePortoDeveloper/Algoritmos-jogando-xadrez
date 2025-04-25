@@ -57,7 +57,7 @@ def main():
         with open("melhor_individuo.json", "r") as f:
             parametros = json.load(f)
 
-    ia = XadrezIA(profundidade=4, cor=chess.BLACK, parametros_personalizados=parametros)
+    ia = XadrezIA(profundidade=3, cor=chess.BLACK, parametros_personalizados=parametros)
 
     rodando = True
     quadrado_selecionado = None
